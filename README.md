@@ -1,4 +1,5 @@
 # 多模态大模型图像检索
+<img src="assets/demo.png" alt="demo">
 
 ## 项目概述
 
@@ -94,7 +95,6 @@ $ python demo.py
 ```
 2. 通过`http://localhost:7860`访问。
 
-<img src="assets/demo.png" alt="demo">
 
 
 
