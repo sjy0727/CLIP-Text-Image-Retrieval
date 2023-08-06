@@ -68,7 +68,6 @@ class ModelQuery:
         with torch.no_grad():
             self.model(**input)
 
-
     # 清空显存
     @classmethod
     def _empty_cache(self):
@@ -138,18 +137,35 @@ class ModelQuery:
         return recalls, mrrs
 
 
-def cal_metrics(topk, model_name):
-    ModelQuery._empty_cache()
-    mq = ModelQuery(model_name)
-    recalls, mrrs = mq(query_text=labels, topk=topk, model_name=model_name, return_metrics=True)
-    return f"""
-            |            | **Recall (%)** | **mAP (%)** |
-            |:----------:|:--------------:|:-----------:|
-            |  **top@1** |{recalls[0]}                |{mrrs[0]}             |
-            |  **top@3** |{recalls[1]}                |{mrrs[1]}             |
-            |  **top@5** |{recalls[2]}                |{mrrs[2]}             |
-            | **top@10** |{recalls[3]}                |{mrrs[3]}             |
-            """
+# def cal_metrics(topk, model_name):
+#     ModelQuery._empty_cache()
+#     mq = ModelQuery(model_name)
+#     recalls, mrrs = mq(query_text=labels, topk=topk, model_name=model_name, return_metrics=True)
+#     return f"""
+#             |            | **Recall (%)** | **mAP (%)** |
+#             |:----------:|:--------------:|:-----------:|
+#             |  **top@1** |{recalls[0]}                |{mrrs[0]}             |
+#             |  **top@3** |{recalls[1]}                |{mrrs[1]}             |
+#             |  **top@5** |{recalls[2]}                |{mrrs[2]}             |
+#             | **top@10** |{recalls[3]}                |{mrrs[3]}             |
+#             """
+
+
+class CalMetrics:
+    def __init__(self, modelquery):
+        self.modelquery = modelquery
+
+    def __call__(self):
+        recalls, mrrs = self.modelquery(query_text=labels, topk=10, model_name=self.modelquery.model_name,
+                                        return_metrics=True)
+        return f"""
+                |            | **Recall (%)** | **mAP (%)** |
+                |:----------:|:--------------:|:-----------:|
+                |  **top@1** |{recalls[0]}    |{mrrs[0]}    |
+                |  **top@3** |{recalls[1]}    |{mrrs[1]}    |
+                |  **top@5** |{recalls[2]}    |{mrrs[2]}    |
+                | **top@10** |{recalls[3]}    |{mrrs[3]}    |
+                """
 
 
 def text2image_gr():
@@ -205,8 +221,11 @@ def text2image_gr():
         gr.Examples(examples, inputs=inputs)
 
         # TODO: 添加推理时间 查询时间的显示框 datatime库 timeit库
-        btn1.click(fn=ModelQuery(model_name.value), inputs=inputs, outputs=out1)
-        btn2.click(fn=cal_metrics, inputs=[topk, model_name], outputs=out2)
+        model_query = ModelQuery(model_name.value)
+        cal_metrics = CalMetrics(model_query)
+
+        btn1.click(fn=model_query, inputs=inputs, outputs=out1)
+        btn2.click(fn=cal_metrics, inputs=None, outputs=out2)
 
     return demo
 
