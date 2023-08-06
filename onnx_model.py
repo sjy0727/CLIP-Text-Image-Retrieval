@@ -30,4 +30,4 @@ class OnnxModel:
         for i in text_token:
             text_token[i] = text_token[i].astype(np.int64)
         text_embeds = self.session.run(None, text_token)[0]
-        return text_embeds / np.linalg.norm(text_embeds, axis=1)
+        return text_embeds / np.linalg.norm(text_embeds, axis=1, keepdims=True)
