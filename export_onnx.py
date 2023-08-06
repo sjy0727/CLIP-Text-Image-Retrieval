@@ -28,18 +28,18 @@ torch.save(text_encoder_hf, f'./onnx/{model_name}_text_encoder.pt')
 text_encoder_pt = torch.load(f'./onnx/{model_name}_text_encoder.pt')
 
 # pt转onnx
-text = processor(text='hello', return_tensors='pt', max_length=77, padding=True).to(device)
+text = processor(text=['hello' for _ in range(32)], return_tensors='pt', max_length=77, padding=True).to(device)
 text = dict(text)
 torch.onnx.export(
-    model = text_encoder_pt,
+    model=text_encoder_pt,
     args=text,
-    f = f'./onnx/{model_name}_text_encoder.onnx',
+    f=f'./onnx/{model_name}_text_encoder.onnx',
     opset_version=14,
     input_names=['input_ids', 'attention_mask'],
     output_names=['text_embeds', 'last_hidden_state'],
     dynamic_axes={
-        'input_ids': {0: 'batch_size'},
-        'attention_mask': {0: 'batch_size'},
+        'input_ids': {0: 'batch_size', 1: 'input_ids_dim'},  # 不同长度的text得到的token长度是不一样的
+        'attention_mask': {0: 'batch_size', 1: 'attention_mask_dim'},
         'text_embeds': {0: 'batch_size'},
         'last_hidden_state': {0: 'batch_size'}
     }
