@@ -13,6 +13,7 @@ import gradio as gr
 import numpy as np
 import pandas as pd
 
+from onnx_model import OnnxModel
 from metric import compute_mrr
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
@@ -46,14 +47,18 @@ def id2image(img_id):
 
 
 class ModelQuery:
-    def __init__(self, model_name):
+    def __init__(self, model_name, use_onnx=False):
         connections.connect(host=config['milvus']['host'], port=config['milvus']['port'])
         self.collection = Collection(config['milvus']['collection_name'])
         self.collection.load()
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model_name = model_name
-        self.model, self.processor = self._load_model_and_processor(model_name)
-        self._warmup()
+        self.use_onnx = use_onnx
+        if self.use_onnx:
+            self.onnx_model = OnnxModel(model_name)
+        else:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.model, self.processor = self._load_model_and_processor(model_name)
+            self._warmup()
 
     # 加载模型和预处理器
     def _load_model_and_processor(self, model_name):
@@ -83,14 +88,17 @@ class ModelQuery:
         if self.model_name != model_name:
             self._reload(model_name)
 
-        text_input = self.processor(text=query_text, return_tensors='pt', padding=True).to(self.device)
-        self.model.eval()
-        with torch.no_grad():
-            output = self.model(**text_input)
+        if self.use_onnx:
+            text_embeds = self.onnx_model(text=query_text)
+        else:
+            text_input = self.processor(text=query_text, return_tensors='pt', padding=True).to(self.device)
+            self.model.eval()
+            with torch.no_grad():
+                output = self.model(**text_input)
 
-        # 文本embeds向量归一化
-        output.text_embeds /= output.text_embeds.norm(dim=-1, keepdim=True)
-        text_embeds = output.text_embeds.cpu().numpy()
+            # 文本embeds向量归一化
+            output.text_embeds /= output.text_embeds.norm(dim=-1, keepdim=True)
+            text_embeds = output.text_embeds.cpu().numpy()
 
         if return_metrics:
             recalls, mrrs = self._compute_metrics(text_embeds)
