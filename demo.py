@@ -45,39 +45,6 @@ def id2image(img_id):
     return img
 
 
-# def compute_rr(true_label, predicted_labels):
-#     """
-#     计算查询单个标签对应的平均倒数排名
-#
-#     :param true_label: 单个真实标签, (1, )
-#     :param predicted_labels: 单真实标签对应的topk个预测标签列表, (1, topk)
-#     :return: 单标签对应的平均倒数排名
-#     """
-#     k = len(predicted_labels)
-#     rr = []
-#     count = 1
-#     for i in range(k):
-#         if predicted_labels[i] == true_label:
-#             rr.append((1.0 / (i + 1)) * count)
-#             count += 1
-#     return np.mean(rr) if len(rr) > 0 else 0
-#
-#
-# def compute_mrr(true_labels_list, predicted_labels_list):
-#     """
-#     计算一批标签对应的平均倒数排名
-#
-#     :param true_labels_list: 真实标签列表 (n_queries, )
-#     :param predicted_labels_list: 真实标签列表分别对应的topk个预测标签, (n_queries, topk)
-#     :return: 一批标签对应的平均倒数排名
-#     """
-#     mrr = []
-#     for true_label, predicted_labels in zip(true_labels_list, predicted_labels_list):
-#         rr = compute_rr(true_label, predicted_labels)
-#         mrr.append(rr)
-#     return np.mean(mrr) if len(mrr) > 0 else 0
-
-
 class ModelQuery:
     def __init__(self, model_name):
         connections.connect(host=config['milvus']['host'], port=config['milvus']['port'])
@@ -180,7 +147,7 @@ def text2image_gr():
     clip = config['gradio']['checkpoint_dir']
     # blip2 = 'blip2-2.7b'
 
-    title = "<h1 align='center'>CLIP以文搜图应用</h1>"
+    title = "<h1 align='center'>多模态大模型图像检索应用</h1>"
     description = '本项目基于mini imagenet数据集微调'
 
     examples = [
