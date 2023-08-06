@@ -254,7 +254,7 @@ if __name__ == "__main__":
     model, optimizer, train_dl, val_dl, = accelerator.prepare(model, optimizer, train_dl, val_dl)
     args.accelerator = accelerator
 
-    # model = fit_model(args, model, optimizer, train_dl, val_dl)
+    model = fit_model(args, model, optimizer, train_dl, val_dl)
     # train_fn(args, model, optimizer, train_dl)
     print(predict_fn(args, model, val_dl))
 
