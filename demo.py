@@ -53,12 +53,21 @@ class ModelQuery:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model_name = model_name
         self.model, self.processor = self._load_model_and_processor(model_name)
+        self._warmup()
 
     # 加载模型和预处理器
     def _load_model_and_processor(self, model_name):
         model = CLIPTextModelWithProjection.from_pretrained(model_name).to(self.device)
         processor = AutoProcessor.from_pretrained(model_name)
         return model, processor
+
+    # 加载模型时 先warmup一下 避免首次推理时间长
+    def _warmup(self):
+        input = self.processor(text='warmup text', return_tensors='pt', padding=True).to(self.device)
+        self.model.eval()
+        with torch.no_grad():
+            self.model(**input)
+
 
     # 清空显存
     @classmethod
