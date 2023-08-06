@@ -137,20 +137,6 @@ class ModelQuery:
         return recalls, mrrs
 
 
-# def cal_metrics(topk, model_name):
-#     ModelQuery._empty_cache()
-#     mq = ModelQuery(model_name)
-#     recalls, mrrs = mq(query_text=labels, topk=topk, model_name=model_name, return_metrics=True)
-#     return f"""
-#             |            | **Recall (%)** | **mAP (%)** |
-#             |:----------:|:--------------:|:-----------:|
-#             |  **top@1** |{recalls[0]}                |{mrrs[0]}             |
-#             |  **top@3** |{recalls[1]}                |{mrrs[1]}             |
-#             |  **top@5** |{recalls[2]}                |{mrrs[2]}             |
-#             | **top@10** |{recalls[3]}                |{mrrs[3]}             |
-#             """
-
-
 class CalMetrics:
     def __init__(self, modelquery):
         self.modelquery = modelquery
