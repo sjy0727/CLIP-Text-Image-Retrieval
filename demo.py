@@ -163,25 +163,26 @@ class ModelQuery:
                     deserialize_res = self.redis_handler.mget(query_text)
                     ids, distances, categories = tuple(zip(*deserialize_res))
                     return ids, distances, categories
+        # 如果不使用redis
+        else:
+            text_embeds = self.model(text=query_text)
+            res = self.collection.search(
+                data=text_embeds,
+                anns_field='embedding',
+                param=config['milvus']['search_params'],
+                limit=topk,
+                output_fields=['category']
+            )
 
-        # text_embeds = self.model(text=query_text)
-        # res = self.collection.search(
-        #     data=text_embeds,
-        #     anns_field='embedding',
-        #     param=config['milvus']['search_params'],
-        #     limit=topk,
-        #     output_fields=['category']
-        # )
-        #
-        # ids = [list(hits.ids) for hits in res]
-        # distances = [list(hits.distances) for hits in res]
-        # categories = [[hit.entity.get('category') for hit in hits] for hits in res]
+            ids = [list(hits.ids) for hits in res]
+            distances = [list(hits.distances) for hits in res]
+            categories = [[hit.entity.get('category') for hit in hits] for hits in res]
 
-        # if type(query_text) != str:
-        #     return ids, distances, categories
-        # else:
-        #     return ids[0], distances[0], categories[0]
-
+            if type(query_text) != str:
+                return ids, distances, categories
+            else:
+                return ids[0], distances[0], categories[0]
+            
     # 计算相关指标
     def _compute_metrics(self, query_text):
         from sklearn.metrics import precision_score, recall_score
