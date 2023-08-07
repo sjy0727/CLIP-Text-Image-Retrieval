@@ -131,7 +131,7 @@ class ModelQuery:
                 return EOFError
 
             # 如果没在redis中找到结果
-            if search_res == None:
+            if search_res == None or None in search_res:
                 text_embeds = self.model(text=query_text)
                 res = self.collection.search(
                     data=text_embeds,
@@ -150,6 +150,11 @@ class ModelQuery:
                     query_text = [query_text]
                 for text, pack in zip(query_text, res_pack):
                     self.redis_handler.set(text, pickle.dumps(pack))
+
+                if type(query_text) != str:
+                    return ids, distances, categories
+                else:
+                    return ids[0], distances[0], categories[0]
             else:
                 if type(query_text) == str:
                     id, distance, category = self.redis_handler.get(query_text)
