@@ -7,20 +7,17 @@
 import os
 import json
 import pickle
-
 import yaml
 
-import torch
 import gradio as gr
 import numpy as np
 import pandas as pd
 
-from onnx_model import OnnxModel, HfModel
+from model import OnnxModel, HfModel
 from redis_handler import RedisHandler
 from metric import compute_mrr
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
-from transformers import AutoModel, AutoProcessor, CLIPTextModelWithProjection
 
 # 加载配置文件
 with open('config.yaml', 'r', encoding='utf-8') as f:
@@ -60,33 +57,6 @@ class ModelQuery:
 
         self.model = OnnxModel(model_name) if self.use_onnx else HfModel(model_name)
         self._connect_milvus()
-        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        # self.model, self.processor = self._load_model_and_processor(model_name)
-        # self._warmup()
-
-    # 加载模型和预处理器
-    # def _load_model_and_processor(self, model_name):
-    #     model = CLIPTextModelWithProjection.from_pretrained(model_name).to(self.device)
-    #     processor = AutoProcessor.from_pretrained(model_name)
-    #     return model, processor
-    #
-    # # 加载模型时 先warmup一下 避免首次推理时间长
-    # def _warmup(self):
-    #     input = self.processor(text='warmup text', return_tensors='pt', padding=True).to(self.device)
-    #     self.model.eval()
-    #     with torch.no_grad():
-    #         self.model(**input)
-    #
-    # # 清空显存
-    # @classmethod
-    # def _empty_cache(self):
-    #     torch.cuda.empty_cache()
-    #
-    # # 重新加载模型和预处理器
-    # def _reload(self, model_name):
-    #     self._empty_cache()
-    #     self.model_name = model_name
-    #     self.model, self.processor = self._load_model_and_processor(model_name)
 
     def _connect_milvus(self):
         connections.connect(host=config['milvus']['host'], port=config['milvus']['port'])
@@ -96,18 +66,6 @@ class ModelQuery:
     def __call__(self, query_text, topk, model_name, return_metrics=False):
         # if not self.use_onnx and self.model_name != model_name:
         #     self._reload(model_name)
-
-        # if self.use_onnx:
-        # text_embeds = self.model(text=query_text)
-        # else:
-        # text_input = self.processor(text=query_text, return_tensors='pt', padding=True).to(self.device)
-        # self.model.eval()
-        # with torch.no_grad():
-        #     output = self.model(**text_input)
-        #
-        # # 文本embeds向量归一化
-        # output.text_embeds /= output.text_embeds.norm(dim=-1, keepdim=True)
-        # text_embeds = output.text_embeds.cpu().numpy()
 
         if return_metrics:
             recalls, mrrs = self._compute_metrics(query_text)
@@ -131,21 +89,11 @@ class ModelQuery:
                 return EOFError
 
             # 如果没在redis中找到结果
-            if search_res == None or None in search_res:
-                text_embeds = self.model(text=query_text)
-                res = self.collection.search(
-                    data=text_embeds,
-                    anns_field='embedding',
-                    param=config['milvus']['search_params'],
-                    limit=topk,
-                    output_fields=['category']
-                )
-
-                ids = [list(hits.ids) for hits in res]
-                distances = [list(hits.distances) for hits in res]
-                categories = [[hit.entity.get('category') for hit in hits] for hits in res]
+            if search_res == None or None in search_res:  # TODO:待优化
+                ids, distances, categories = self._embed_and_search(query_text, topk)
 
                 res_pack = list(zip(ids, distances, categories))
+                # 如果查询文本是单个字符串则转为列表，方便统一处理
                 if type(query_text) == str:
                     query_text = [query_text]
                 for text, pack in zip(query_text, res_pack):
@@ -165,24 +113,27 @@ class ModelQuery:
                     return ids, distances, categories
         # 如果不使用redis
         else:
-            text_embeds = self.model(text=query_text)
-            res = self.collection.search(
-                data=text_embeds,
-                anns_field='embedding',
-                param=config['milvus']['search_params'],
-                limit=topk,
-                output_fields=['category']
-            )
-
-            ids = [list(hits.ids) for hits in res]
-            distances = [list(hits.distances) for hits in res]
-            categories = [[hit.entity.get('category') for hit in hits] for hits in res]
-
+            ids, distances, categories = self._embed_and_search(query_text, topk)
             if type(query_text) != str:
                 return ids, distances, categories
             else:
                 return ids[0], distances[0], categories[0]
-            
+
+    def _embed_and_search(self, query_text, topk):
+        text_embeds = self.model(text=query_text)
+        res = self.collection.search(  # TODO: 把milvus部分代码抽离成单个类
+            data=text_embeds,
+            anns_field='embedding',
+            param=config['milvus']['search_params'],
+            limit=topk,
+            output_fields=['category']
+        )
+
+        ids = [list(hits.ids) for hits in res]
+        distances = [list(hits.distances) for hits in res]
+        categories = [[hit.entity.get('category') for hit in hits] for hits in res]
+        return ids, distances, categories
+
     # 计算相关指标
     def _compute_metrics(self, query_text):
         from sklearn.metrics import precision_score, recall_score
