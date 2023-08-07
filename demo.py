@@ -6,6 +6,8 @@
 """
 import os
 import json
+import pickle
+
 import yaml
 
 import torch
@@ -13,7 +15,8 @@ import gradio as gr
 import numpy as np
 import pandas as pd
 
-from onnx_model import OnnxModel
+from onnx_model import OnnxModel, HfModel
+from redis_handler import RedisHandler
 from metric import compute_mrr
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
@@ -47,92 +50,139 @@ def id2image(img_id):
 
 
 class ModelQuery:
-    def __init__(self, model_name, use_onnx=False):
+    def __init__(self, model_name, use_onnx=config['onnx']['use_onnx'], use_redis=config['redis']['use_redis']):
+        self.model_name = model_name
+        self.use_onnx = use_onnx
+        self.use_redis = use_redis
+
+        if self.use_redis:
+            self.redis_handler = RedisHandler()
+
+        self.model = OnnxModel(model_name) if self.use_onnx else HfModel(model_name)
+        self._connect_milvus()
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.model, self.processor = self._load_model_and_processor(model_name)
+        # self._warmup()
+
+    # 加载模型和预处理器
+    # def _load_model_and_processor(self, model_name):
+    #     model = CLIPTextModelWithProjection.from_pretrained(model_name).to(self.device)
+    #     processor = AutoProcessor.from_pretrained(model_name)
+    #     return model, processor
+    #
+    # # 加载模型时 先warmup一下 避免首次推理时间长
+    # def _warmup(self):
+    #     input = self.processor(text='warmup text', return_tensors='pt', padding=True).to(self.device)
+    #     self.model.eval()
+    #     with torch.no_grad():
+    #         self.model(**input)
+    #
+    # # 清空显存
+    # @classmethod
+    # def _empty_cache(self):
+    #     torch.cuda.empty_cache()
+    #
+    # # 重新加载模型和预处理器
+    # def _reload(self, model_name):
+    #     self._empty_cache()
+    #     self.model_name = model_name
+    #     self.model, self.processor = self._load_model_and_processor(model_name)
+
+    def _connect_milvus(self):
         connections.connect(host=config['milvus']['host'], port=config['milvus']['port'])
         self.collection = Collection(config['milvus']['collection_name'])
         self.collection.load()
-        self.model_name = model_name
-        self.use_onnx = use_onnx
-        if self.use_onnx:
-            self.onnx_model = OnnxModel(model_name)
-        else:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            self.model, self.processor = self._load_model_and_processor(model_name)
-            self._warmup()
-
-    # 加载模型和预处理器
-    def _load_model_and_processor(self, model_name):
-        model = CLIPTextModelWithProjection.from_pretrained(model_name).to(self.device)
-        processor = AutoProcessor.from_pretrained(model_name)
-        return model, processor
-
-    # 加载模型时 先warmup一下 避免首次推理时间长
-    def _warmup(self):
-        input = self.processor(text='warmup text', return_tensors='pt', padding=True).to(self.device)
-        self.model.eval()
-        with torch.no_grad():
-            self.model(**input)
-
-    # 清空显存
-    @classmethod
-    def _empty_cache(self):
-        torch.cuda.empty_cache()
-
-    # 重新加载模型和预处理器
-    def _reload(self, model_name):
-        self._empty_cache()
-        self.model_name = model_name
-        self.model, self.processor = self._load_model_and_processor(model_name)
 
     def __call__(self, query_text, topk, model_name, return_metrics=False):
-        if self.model_name != model_name:
-            self._reload(model_name)
+        # if not self.use_onnx and self.model_name != model_name:
+        #     self._reload(model_name)
 
-        if self.use_onnx:
-            text_embeds = self.onnx_model(text=query_text)
-        else:
-            text_input = self.processor(text=query_text, return_tensors='pt', padding=True).to(self.device)
-            self.model.eval()
-            with torch.no_grad():
-                output = self.model(**text_input)
-
-            # 文本embeds向量归一化
-            output.text_embeds /= output.text_embeds.norm(dim=-1, keepdim=True)
-            text_embeds = output.text_embeds.cpu().numpy()
+        # if self.use_onnx:
+        # text_embeds = self.model(text=query_text)
+        # else:
+        # text_input = self.processor(text=query_text, return_tensors='pt', padding=True).to(self.device)
+        # self.model.eval()
+        # with torch.no_grad():
+        #     output = self.model(**text_input)
+        #
+        # # 文本embeds向量归一化
+        # output.text_embeds /= output.text_embeds.norm(dim=-1, keepdim=True)
+        # text_embeds = output.text_embeds.cpu().numpy()
 
         if return_metrics:
-            recalls, mrrs = self._compute_metrics(text_embeds)
+            recalls, mrrs = self._compute_metrics(query_text)
             return recalls, mrrs
         else:
-            ids, distances, categories = self._search_categories(text_embeds, topk)
+            ids, distances, categories = self._search_categories(query_text, topk)
             images = list(map(id2image, ids))
             captions = list(map(lambda x: labels[x], categories))
             return list(zip(images, captions))
 
     # 根据 单个文本向量搜索topk个结果
-    def _search_categories(self, text_embeds, topk, return_batch=False):
-        res = self.collection.search(
-            data=text_embeds,
-            anns_field='embedding',
-            param=config['milvus']['search_params'],
-            limit=topk,
-            output_fields=['category']
-        )
+    def _search_categories(self, query_text, topk):
+        if self.use_redis:
+            # 如果查询文本是单个字符串
+            if type(query_text) == str:
+                search_res = self.redis_handler.get(query_text)
+            # 如果查询文本是字符串列表
+            elif type(query_text) == list:
+                search_res = self.redis_handler.redis_client.mget(query_text)
+            else:
+                return EOFError
 
-        ids = [list(hits.ids) for hits in res]
-        distances = [list(hits.distances) for hits in res]
-        categories = [[hit.entity.get('category') for hit in hits] for hits in res]
-        if return_batch:
-            return ids, distances, categories
-        else:
-            return ids[0], distances[0], categories[0]
+            # 如果没在redis中找到结果
+            if search_res == None:
+                text_embeds = self.model(text=query_text)
+                res = self.collection.search(
+                    data=text_embeds,
+                    anns_field='embedding',
+                    param=config['milvus']['search_params'],
+                    limit=topk,
+                    output_fields=['category']
+                )
+
+                ids = [list(hits.ids) for hits in res]
+                distances = [list(hits.distances) for hits in res]
+                categories = [[hit.entity.get('category') for hit in hits] for hits in res]
+
+                res_pack = list(zip(ids, distances, categories))
+                if type(query_text) == str:
+                    query_text = [query_text]
+                for text, pack in zip(query_text, res_pack):
+                    self.redis_handler.set(text, pickle.dumps(pack))
+            else:
+                if type(query_text) == str:
+                    id, distance, category = self.redis_handler.get(query_text)
+                    return id, distance, category
+                elif type(query_text) == list:
+                    deserialize_res = self.redis_handler.mget(query_text)
+                    ids, distances, categories = tuple(zip(*deserialize_res))
+                    return ids, distances, categories
+
+        # text_embeds = self.model(text=query_text)
+        # res = self.collection.search(
+        #     data=text_embeds,
+        #     anns_field='embedding',
+        #     param=config['milvus']['search_params'],
+        #     limit=topk,
+        #     output_fields=['category']
+        # )
+        #
+        # ids = [list(hits.ids) for hits in res]
+        # distances = [list(hits.distances) for hits in res]
+        # categories = [[hit.entity.get('category') for hit in hits] for hits in res]
+
+        # if type(query_text) != str:
+        #     return ids, distances, categories
+        # else:
+        #     return ids[0], distances[0], categories[0]
 
     # 计算相关指标
-    def _compute_metrics(self, text_embeds):
+    def _compute_metrics(self, query_text):
         from sklearn.metrics import precision_score, recall_score
         recalls, mrrs = [], []
         topk_list = [1, 3, 5, 10]
-        ids, _, categories = self._search_categories(text_embeds, max(topk_list), return_batch=True)
+        ids, _, categories = self._search_categories(query_text, max(topk_list))
         for k in topk_list:
             targets = np.array([i for i in range(100)]).repeat(k)
             categories_flat = np.array(categories)[:, :k].flatten()
