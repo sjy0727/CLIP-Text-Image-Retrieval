@@ -3,7 +3,7 @@ milvus:
   host: '127.0.0.1'
   port: '19530'
   collection_name: 'base_patch32_add'
-  vector_dim: 512
+  vector_dim: 512 # clip_large_patch14 对应向量维度为 768
   topk: 10
 
   index_params: # 索引参数
@@ -18,6 +18,14 @@ milvus:
     "params":
       "ef": 20 # topk < search_param的ef
 
+#============== redis 配置部分 =================
+redis:
+  use_redis: True
+  host: '127.0.0.1'
+  port: 6379
+  db: 0
+  expire_time: 3600 # 过期时间
+
 #============= Gradio模型配置部分 ================
 gradio:
   checkpoint_dir: 'openai/clip-vit-base-patch32' # gradio模型需与用来embeds存入milvus的模型一致
@@ -29,5 +37,6 @@ finetune:
 
 #================ onnx 配置部分 ================
 onnx:
+  use_onnx: True
   checkpoint_dir: 'openai/clip-vit-base-patch32' # 可以是huggingface上的模型名称或本地文件夹
   save_dir: './onnx'
