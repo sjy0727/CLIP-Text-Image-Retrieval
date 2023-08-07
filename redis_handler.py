@@ -4,27 +4,50 @@
 @Author :sunjunyi
 @Time   :2023/8/5 19:16
 """
+import yaml
+import pickle
 import redis
 
+# 加载配置文件
+with open('config.yaml', 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
+
+
 class RedisHandler:
-    def __init__(self, host='localhost', port=6379, db=0):
+    def __init__(self,
+                 host=config['redis']['host'],
+                 port=config['redis']['port'],
+                 db=config['redis']['db']
+                 ):
+
         self.redis_client = redis.StrictRedis(host=host, port=port, db=db)
 
-    def add_data(self, key, value):
-        self.redis_client.set(key, value)
+    def set(self, key, value, ex=config['redis']['expire_time']):
+        self.redis_client.set(key, value, ex)
 
-    def get_data(self, key):
+    def get(self, key):
         result = self.redis_client.get(key)
         if result:
-            return result.decode('utf-8')
+            return pickle.loads(result)
         else:
             return None
+
+    def mget(self, keys):
+        deserialize_res = []
+        results = self.redis_client.mget(keys)
+        for result in results:
+            if result:
+                deserialize_res.append(pickle.loads(result))
+            else:
+                deserialize_res.append(None)
+        return deserialize_res
 
     def update_data(self, key, new_value):
         self.redis_client.set(key, new_value)
 
     def delete_data(self, key):
         self.redis_client.delete(key)
+
 
 if __name__ == "__main__":
     redis_handler = RedisHandler()
@@ -33,7 +56,7 @@ if __name__ == "__main__":
     value = "example_value"
 
     # 添加数据
-    redis_handler.add_data(key, value)
+    redis_handler.set(key, value)
     print(f"添加数据：{key} -> {value}")
 
     # 获取数据
