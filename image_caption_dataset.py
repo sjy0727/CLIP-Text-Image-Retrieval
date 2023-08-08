@@ -37,10 +37,6 @@ def build_image_caption_pair(is_train=False):
 
 
 class ImageCaptionDataset(Dataset):
-    """
-    输入是图像文件地址列表，标签文字列表，输出是text embeds和image embeds
-    """
-
     def __init__(self, is_train=False, return_loss=False):
         self.data = build_image_caption_pair(is_train=is_train)
         self.return_loss = return_loss
