@@ -86,7 +86,7 @@ class ModelQuery:
             elif type(query_text) == list:
                 search_res = self.redis_handler.redis_client.mget(query_text)
             else:
-                return EOFError
+                return NotImplementedError
 
             # 如果没在redis中找到结果
             if search_res == None or None in search_res:  # TODO:待优化
