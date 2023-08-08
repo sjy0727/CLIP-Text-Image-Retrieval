@@ -1,4 +1,5 @@
 # 多模态大模型图像检索
+
 <img src="assets/demo.png" alt="demo">
 
 ## 项目概述
@@ -23,6 +24,19 @@
 在这里提供项目的安装指南：
 
 1. 下载安装单机版`milvus`向量数据库 https://milvus.io/docs/install_standalone-docker.md
+
+```bash
+$ wget https://github.com/milvus-io/milvus/releases/download/v2.2.12/milvus-standalone-docker-compose.yml -O docker-compose.yml
+$ sudo docker-compose up -d
+$ docker port milvus-standalone 19530/tcp
+```
+
+2. 下载安装redis
+
+```bash
+$ sudo apt-get install redis-server
+```
+
 2. 安装所需依赖项：
 
 ```bash
@@ -93,6 +107,7 @@ $ python export_onnx.py
 ```bash
 $ python demo.py
 ```
+
 2. 通过`http://localhost:7860`访问。
 
 
