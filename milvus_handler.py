@@ -42,6 +42,27 @@ class MilvusHandler:
         self.collection.flush()
 
     @staticmethod
+    def create_collection(collection_name, dim):
+        if utility.has_collection(collection_name):  # 如果数据库存在则删除
+            utility.drop_collection(collection_name)
+
+        fields = [
+            FieldSchema(name='id', dtype=DataType.INT64, descrition='ids', is_primary=True, auto_id=False),
+            FieldSchema(name='embedding', dtype=DataType.FLOAT_VECTOR, descrition='embedding vectors', dim=dim),
+            FieldSchema(name='category', dtype=DataType.INT64, descrition='category'),
+        ]
+
+        schema = CollectionSchema(fields=fields, description='mini imagenet text image search')
+        collection = Collection(name=collection_name, schema=schema)
+
+        # 在配置文件中填写索引参数
+        index_params = config['milvus']['index_params']
+
+        # 根据字段建立索引
+        collection.create_index(field_name="embedding", index_params=index_params)
+        return collection
+
+    @staticmethod
     def list_collections():
         utility.list_collections()
 
