@@ -58,12 +58,7 @@ class ModelQuery:
 
         self.milvus_handler = MilvusHandler()
         self.model = OnnxModel(model_name) if self.use_onnx else HfModel(model_name)
-        # self._connect_milvus()
 
-    # def _connect_milvus(self):
-    #     connections.connect(host=config['milvus']['host'], port=config['milvus']['port'])
-    #     self.collection = Collection(config['milvus']['collection_name'])
-    #     self.collection.load()
 
     def __call__(self, query_text, topk, model_name, return_metrics=False):
         # if not self.use_onnx and self.model_name != model_name:
@@ -123,18 +118,6 @@ class ModelQuery:
 
     def _embed_and_search(self, query_text, topk):
         text_embeds = self.model(text=query_text)
-        # res = self.collection.search(  # TODO: 把milvus部分代码抽离成单个类
-        #     data=text_embeds,
-        #     anns_field='embedding',
-        #     param=config['milvus']['search_params'],
-        #     limit=topk,
-        #     output_fields=['category']
-        # )
-        #
-        # ids = [list(hits.ids) for hits in res]
-        # distances = [list(hits.distances) for hits in res]
-        # categories = [[hit.entity.get('category') for hit in hits] for hits in res]
-        # return ids, distances, categories
         ids, distances, categories = self.milvus_handler.search(text_embeds, topk)
         return ids, distances, categories
 
