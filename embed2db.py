@@ -12,6 +12,7 @@ import pandas as pd
 import torch
 
 from image_caption_dataset import ImageCaptionDataset
+from milvus_handler import MilvusHandler
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 from tqdm import tqdm
@@ -71,10 +72,9 @@ if __name__ == '__main__':
         collate_fn=dataset.collate_fn
     )
 
-    # connections.connect(host='127.0.0.1', port='19530')
-    create_milvus_collection(config['milvus']['collection_name'], config['milvus']['vector_dim'])
-    collection = Collection(config['milvus']['collection_name'])
-    print(utility.list_collections())
+    milvus_handler = MilvusHandler()
+    milvus_handler.create_collection(config['milvus']['collection_name'], config['milvus']['vector_dim'])
+    milvus_handler._connect_collection(config['milvus']['collection_name'])
 
     # 调用显卡inference
     model.eval()
@@ -91,10 +91,9 @@ if __name__ == '__main__':
             text_embeds = output.text_embeds.squeeze().cpu().numpy()
 
             insert_datas = [ids, (image_embeds + text_embeds) / 2, categories]  # 可以传list(dict) or list(list)
-            mr = collection.insert(data=insert_datas)
+            # mr = collection.insert(data=insert_datas)
+            mr = milvus_handler.insert(data=insert_datas)
 
-    collection.load()  # 加载向量数据到内存中
-    collection.flush()
-    print(collection.num_entities)
-    print(utility.list_collections())
-    # utility.drop_collection('test')
+    milvus_handler.load_and_flush()  # 加载向量数据到内存中
+    milvus_handler.get_num_entities()
+    milvus_handler.list_collections()
