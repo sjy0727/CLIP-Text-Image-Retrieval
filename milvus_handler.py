@@ -15,12 +15,21 @@ with open('config.yaml', 'r', encoding='utf-8') as f:
 class MilvusHandler:
     def __init__(self,
                  host=config['milvus']['host'],
-                 port=config['milvus']['port']
+                 port=config['milvus']['port'],
+                 collection_name=config['milvus']['collection_name']
                  ):
         # 连接向量数据库并加载到内存中
+        self.collection_name = collection_name
         connections.connect(host=host, port=port)
-        self.collection = Collection(config['milvus']['collection_name'])
-        self.collection.load()
+        # 连接对应的collection
+        self._connect_collection(self.collection_name)
+
+    def _connect_collection(self, collection_name):
+        if utility.has_collection(collection_name):  # 如果数据库存在则删除
+            self.collection = Collection()
+            self.collection.load()
+        else:
+            print('milvus中没有' + collection_name + '对应的collection')
 
     def search(self, embeds, topk):
         res = self.collection.search(  # TODO: 把milvus部分代码抽离成单个类
