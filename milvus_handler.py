@@ -46,9 +46,14 @@ class MilvusHandler:
         return ids, distances, categories
 
     def insert(self, data):  # 可以传list(dict) or list(list)
-        self.collection.insert(data=data)
+        return self.collection.insert(data=data)
+
+    def load_and_flush(self):
         self.collection.load()
         self.collection.flush()
+
+    def get_num_entities(self):
+        print('已插入' + self.collection.num_entities + '条数据')
 
     @staticmethod
     def create_collection(collection_name, dim):
@@ -73,8 +78,9 @@ class MilvusHandler:
 
     @staticmethod
     def list_collections():
-        utility.list_collections()
+        print(utility.list_collections())
 
     @staticmethod
     def drop_collection(collection_name):
         utility.drop_collection(collection_name)
+        print('已删除' + collection_name)
