@@ -28,7 +28,7 @@ class MilvusHandler:
 
     def _connect_collection(self, collection_name):
         if utility.has_collection(collection_name):  # 如果数据库存在则删除
-            self.collection = Collection()
+            self.collection = Collection(collection_name)
             self.collection.load()
         else:
             print('milvus中没有' + collection_name + '对应的collection')
