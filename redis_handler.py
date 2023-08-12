@@ -10,11 +10,6 @@ import redis
 from config import config
 
 
-# 加载配置文件
-# with open('config.yaml', 'r', encoding='utf-8') as f:
-#     config = yaml.safe_load(f)
-
-
 class RedisHandler:
     def __init__(self,
                  host=config.redis.host,
