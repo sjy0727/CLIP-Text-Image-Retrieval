@@ -47,7 +47,7 @@ def id2image(img_id):
     return img
 
 
-class ModelQuery:
+class QueryService:
     def __init__(self, model_name, use_onnx=config['onnx']['use_onnx'], use_redis=config['redis']['use_redis']):
         self.model_name = model_name
         self.use_onnx = use_onnx
@@ -140,12 +140,12 @@ class ModelQuery:
 
 
 class CalMetrics:
-    def __init__(self, modelquery):
-        self.modelquery = modelquery
+    def __init__(self, query_service):
+        self.query_service = query_service
 
     def __call__(self):
-        recalls, mrrs = self.modelquery(query_text=labels, topk=10, model_name=self.modelquery.model_name,
-                                        return_metrics=True)
+        recalls, mrrs = self.query_service(query_text=labels, topk=10, model_name=self.query_service.model_name,
+                                           return_metrics=True)
         return f"""
                 |            | **Recall (%)** | **mAP (%)** |
                 |:----------:|:--------------:|:-----------:|
@@ -209,7 +209,7 @@ def text2image_gr():
         gr.Examples(examples, inputs=inputs)
 
         # TODO: 添加推理时间 查询时间的显示框 datatime库 timeit库
-        model_query = ModelQuery(model_name.value)
+        model_query = QueryService(model_name.value)
         cal_metrics = CalMetrics(model_query)
 
         btn1.click(fn=model_query, inputs=inputs, outputs=out1)
