@@ -85,7 +85,7 @@ mini-imagenet
 $ accelerate launch --multi_gpu \
                     --mixed_precision=fp16 \
                     --num_processes=2 \
-                    clip_finetuning.py \
+                    finetuning.py \
                     --ep=5 \
                     --lr=5e-5 \
                     --bs=64
