@@ -9,11 +9,6 @@ from config import config
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 
 
-# 加载配置文件
-# with open('config.yaml', 'r', encoding='utf-8') as f:
-#     config = yaml.safe_load(f)
-
-
 class MilvusHandler:
     def __init__(self,
                  host=config.milvus.host,
