@@ -14,8 +14,6 @@ from config import config
 from transformers import AutoProcessor
 from transformers.models.clip import CLIPTextModelWithProjection
 
-
-
 # 预处理器
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 processor = AutoProcessor.from_pretrained(config.onnx.checkpoint_dir)
