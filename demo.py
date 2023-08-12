@@ -13,16 +13,13 @@ import gradio as gr
 import numpy as np
 import pandas as pd
 
+from config import config
 from model import OnnxModel, HfModel
 from redis_handler import RedisHandler
 from milvus_handler import MilvusHandler
 from metric import compute_mrr
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
-
-# 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
 
 root_dir = './mini-imagenet/'
 with open(os.path.join(root_dir, 'classes_name.json'), 'r') as f:
@@ -48,7 +45,7 @@ def id2image(img_id):
 
 
 class QueryService:
-    def __init__(self, model_name, use_onnx=config['onnx']['use_onnx'], use_redis=config['redis']['use_redis']):
+    def __init__(self, model_name, use_onnx=config.onnx.use_onnx, use_redis=config.redis.use_redis):
         self.model_name = model_name
         self.use_onnx = use_onnx
         self.use_redis = use_redis
@@ -58,7 +55,6 @@ class QueryService:
 
         self.milvus_handler = MilvusHandler()
         self.model = OnnxModel(model_name) if self.use_onnx else HfModel(model_name)
-
 
     def __call__(self, query_text, topk, model_name, return_metrics=False):
         # if not self.use_onnx and self.model_name != model_name:
@@ -157,7 +153,7 @@ class CalMetrics:
 
 
 def text2image_gr():
-    clip = config['gradio']['checkpoint_dir']
+    clip = config.gradio.checkpoint_dir
     # blip2 = 'blip2-2.7b'
 
     title = "<h1 align='center'>多模态大模型图像检索应用</h1>"

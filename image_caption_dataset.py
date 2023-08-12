@@ -8,13 +8,15 @@ import os
 import yaml
 import json
 import pandas as pd
+
+from config import config
 from torch.utils.data import Dataset
 from PIL import Image
 from transformers import AutoProcessor
 
-# 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+# # 加载配置文件
+# with open('config.yaml', 'r', encoding='utf-8') as f:
+#     config = yaml.safe_load(f)
 
 
 def build_image_caption_pair(is_train=False):
@@ -40,7 +42,7 @@ class ImageCaptionDataset(Dataset):
     def __init__(self, is_train=False, return_loss=False):
         self.data = build_image_caption_pair(is_train=is_train)
         self.return_loss = return_loss
-        self.processor = AutoProcessor.from_pretrained(config['finetune']['checkpoint_dir'])
+        self.processor = AutoProcessor.from_pretrained(config.finetune.checkpoint_dir)
 
     def __len__(self):
         return len(self.data)

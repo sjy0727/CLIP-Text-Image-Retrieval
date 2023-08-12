@@ -11,6 +11,7 @@ import yaml
 import pandas as pd
 import torch
 
+from config import config
 from image_caption_dataset import ImageCaptionDataset
 from milvus_handler import MilvusHandler
 from torch.utils.data import DataLoader, Dataset
@@ -19,13 +20,9 @@ from tqdm import tqdm
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility, db
 from transformers import AutoModel, AutoProcessor, CLIPVisionModelWithProjection, CLIPTextModelWithProjection, CLIPModel
 
-# 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
-
 
 def create_milvus_collection(collection_name, dim):
-    connections.connect(host=config['milvus']['host'], port=config['milvus']['port'])
+    connections.connect(host=config.milvus.host, port=config.milvus.port)
 
     if utility.has_collection(collection_name):  # 如果数据库存在则删除
         utility.drop_collection(collection_name)
@@ -39,7 +36,7 @@ def create_milvus_collection(collection_name, dim):
     schema = CollectionSchema(fields=fields, description='mini imagenet text image search')
     collection = Collection(name=collection_name, schema=schema)
 
-    index_params = config['milvus']['index_params']
+    index_params = config.milvus.index_params
 
     # 根据字段建立索引
     collection.create_index(field_name="embedding", index_params=index_params)
@@ -48,7 +45,7 @@ def create_milvus_collection(collection_name, dim):
 
 if __name__ == '__main__':
     # 权重路径
-    checkpoint_dir = config['model']['checkpoint_dir']
+    checkpoint_dir = config.finetune.checkpoint_dir
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('device: ', device)
     # 模型加载权重
@@ -73,8 +70,8 @@ if __name__ == '__main__':
     )
 
     milvus_handler = MilvusHandler()
-    milvus_handler.create_collection(config['milvus']['collection_name'], config['milvus']['vector_dim'])
-    milvus_handler._connect_collection(config['milvus']['collection_name'])
+    milvus_handler.create_collection(config.milvus.collection_name, config.milvus.vector_dim)
+    milvus_handler._connect_collection(config.milvus.collection_name)
 
     # 调用显卡inference
     model.eval()

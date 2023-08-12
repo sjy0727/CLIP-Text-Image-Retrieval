@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from config import config
 from image_caption_dataset import ImageCaptionDataset
 from torch.optim import Adam, SGD, AdamW
 from torch.utils.data import Dataset, DataLoader, Subset, Sampler, SubsetRandomSampler
@@ -41,8 +42,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+# with open('config.yaml', 'r', encoding='utf-8') as f:
+#     config = yaml.safe_load(f)
 
 
 class DifferentClassSampler(Sampler):
@@ -150,13 +151,13 @@ def fit_model(args, model, optimizer, train_dl, val_dl):
             # torch.save(model.state_dict(), f"./checkpoint/model_{train_loss}.pt")
             unwrapped_model = accelerator.unwrap_model(model)
             unwrapped_model.save_pretrained(
-                config['finetune']['save_dir'],
+                config.finetune.save_dir,
                 is_main_process=accelerator.is_main_process,
                 save_function=accelerator.save,
             )
             # accelerator.save_model(model, './checkpoint')
 
-    model = AutoModel.from_pretrained(config['finetune']['save_dir'])
+    model = AutoModel.from_pretrained(config.finetune.save_dir)
     # model.load_state_dict(torch.load(f"./checkpoint/model_{train_loss}.pt"))
     return model
 
@@ -199,13 +200,13 @@ if __name__ == "__main__":
         collate_fn=val_ds.collate_fn,
         drop_last=False)
 
-    model = CLIPModel.from_pretrained(config['finetune']['checkpoint_dir'])
+    model = CLIPModel.from_pretrained(config.finetune.checkpoint_dir)
     optimizer = Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-6, weight_decay=0.2)
 
     # 初始化Accelerator
-    os.makedirs(config['finetune']['save_dir'], exist_ok=True)
+    os.makedirs(config.finetune.save_dir, exist_ok=True)
     kwargs = InitProcessGroupKwargs(backend='gloo', timeout=timedelta(days=1))  # 选择操作系统对应的后端 windows不支持nccl
-    accelerator = Accelerator(kwargs_handlers=[kwargs], project_dir=config['finetune']['save_dir'])
+    accelerator = Accelerator(kwargs_handlers=[kwargs], project_dir=config.finetune.save_dir)
 
     # 多GPU训练准备
     model, optimizer, train_dl, val_dl, = accelerator.prepare(model, optimizer, train_dl, val_dl)

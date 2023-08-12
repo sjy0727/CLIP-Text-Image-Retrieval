@@ -9,18 +9,18 @@ import yaml
 import onnxruntime
 import torch
 import numpy as np
+
+from config import config
 from transformers import AutoProcessor
 from transformers.models.clip import CLIPTextModelWithProjection
 
-# 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+
 
 # 预处理器
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-processor = AutoProcessor.from_pretrained(config['onnx']['checkpoint_dir'])
-text_encoder_hf = CLIPTextModelWithProjection.from_pretrained(config['onnx']['checkpoint_dir']).to(device)
-model_name = config['onnx']['checkpoint_dir'].split('/')[1]
+processor = AutoProcessor.from_pretrained(config.onnx.checkpoint_dir)
+text_encoder_hf = CLIPTextModelWithProjection.from_pretrained(config.onnx.checkpoint_dir).to(device)
+model_name = config.onnx.checkpoint_dir.split('/')[1]
 
 # bin转pt
 os.makedirs('./onnx', exist_ok=True)

@@ -5,18 +5,20 @@
 @Time   :2023/8/11 21:06
 """
 import yaml
+from config import config
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 
+
 # 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+# with open('config.yaml', 'r', encoding='utf-8') as f:
+#     config = yaml.safe_load(f)
 
 
 class MilvusHandler:
     def __init__(self,
-                 host=config['milvus']['host'],
-                 port=config['milvus']['port'],
-                 collection_name=config['milvus']['collection_name']
+                 host=config.milvus.host,
+                 port=config.milvus.port,
+                 collection_name=config.milvus.collection_name
                  ):
         # 连接向量数据库并加载到内存中
         self.collection_name = collection_name
@@ -35,7 +37,7 @@ class MilvusHandler:
         res = self.collection.search(  # TODO: 把milvus部分代码抽离成单个类
             data=embeds,
             anns_field='embedding',
-            param=config['milvus']['search_params'],
+            param=config.milvus.search_params,
             limit=topk,
             output_fields=['category']
         )

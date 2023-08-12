@@ -4,25 +4,27 @@
 @Author :sunjunyi
 @Time   :2023/8/5 19:16
 """
-import yaml
+
 import pickle
 import redis
+from config import config
+
 
 # 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+# with open('config.yaml', 'r', encoding='utf-8') as f:
+#     config = yaml.safe_load(f)
 
 
 class RedisHandler:
     def __init__(self,
-                 host=config['redis']['host'],
-                 port=config['redis']['port'],
-                 db=config['redis']['db']
+                 host=config.redis.host,
+                 port=config.redis.port,
+                 db=config.redis.db
                  ):
 
         self.redis_client = redis.StrictRedis(host=host, port=port, db=db)
 
-    def set(self, key, value, ex=config['redis']['expire_time']):
+    def set(self, key, value, ex=config.redis.expire_time):
         self.redis_client.set(key, value, ex)
 
     def get(self, key):

@@ -10,16 +10,13 @@ import torch
 import onnxruntime
 import numpy as np
 from transformers import AutoProcessor, CLIPTextModelWithProjection
-
-# 加载配置文件
-with open('config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
+from config import config
 
 
 class OnnxModel:
     def __init__(self, model_name):
         self.model_name = model_name
-        self.onnx_path = os.path.join(config['onnx']['save_dir'], model_name.split('/')[1] + '_text_encoder.onnx')
+        self.onnx_path = os.path.join(config.onnx.save_dir, model_name.split('/')[1] + '_text_encoder.onnx')
         self.providers = 'CUDAExecutionProvider' if torch.cuda.is_available() else 'CPUExecutionProvider'
         self.session = onnxruntime.InferenceSession(self.onnx_path, providers=[self.providers])
         self.processor = AutoProcessor.from_pretrained(model_name)
