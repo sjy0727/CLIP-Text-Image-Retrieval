@@ -75,7 +75,7 @@ mini-imagenet
 
 ## 配置文件
 
-- 本项目以yaml作为配置文件，将微调，导出onnx，推理相关的参数写在`config.yaml`中。
+- 本项目以yaml作为配置文件，将微调，导出onnx，推理相关的参数写在`config.py`中。
 
 ## 微调
 
