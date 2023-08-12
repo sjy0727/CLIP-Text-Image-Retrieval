@@ -14,10 +14,6 @@ from torch.utils.data import Dataset
 from PIL import Image
 from transformers import AutoProcessor
 
-# # 加载配置文件
-# with open('config.yaml', 'r', encoding='utf-8') as f:
-#     config = yaml.safe_load(f)
-
 
 def build_image_caption_pair(is_train=False):
     root_dir = './mini-imagenet/'
