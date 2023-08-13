@@ -128,16 +128,16 @@ class QueryService:
         ids, _, categories = self._search_categories(query_text, max(topk_list))
         for k in topk_list:
             targets = np.array([i for i in range(100)])
-            categories = np.array(categories)[:, :k]
+            categories_k = np.array(categories)[:, :k]
 
             targets_repeat = targets.repeat(k)
-            categories_flat = categories.flatten()
+            categories_flat = categories_k.flatten()
 
             recall = recall_score(targets_repeat, categories_flat, average='micro')
             # mrr = compute_mrr(targets, categories)
-            mrr = MRR(categories, targets)
-            ndcg = NDCG(categories, targets)
-            m_ap = mAP(categories, targets)
+            mrr = MRR(categories_k, targets)
+            ndcg = NDCG(categories_k, targets)
+            m_ap = mAP(categories_k, targets)
 
             recalls.append(round(100 * recall, 4))
             # mrrs.append(round(100 * mrr, 4))
@@ -152,8 +152,9 @@ class CalMetrics:
         self.query_service = query_service
 
     def __call__(self):
-        recalls, mrrs, ndcgs, maps = self.query_service(query_text=labels, topk=10, model_name=self.query_service.model_name,
-                                           return_metrics=True)
+        recalls, mrrs, ndcgs, maps = self.query_service(query_text=labels, topk=10,
+                                                        model_name=self.query_service.model_name,
+                                                        return_metrics=True)
         return f"""
                 |            | **Recall (%)** | **MRR (%)** | **NDCG (%)** | **mAP (%)** |
                 |:----------:|:--------------:|:-----------:|:------------:|:-----------:|
