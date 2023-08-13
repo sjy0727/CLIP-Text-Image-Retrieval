@@ -16,7 +16,7 @@ import pandas as pd
 from config import config
 from model import OnnxModel, HfModel
 from db_handler import MilvusHandler, RedisHandler
-from metric import compute_mrr
+from metric import compute_mrr, NDCG, MRR, mAP
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 
@@ -60,8 +60,8 @@ class QueryService:
         #     self._reload(model_name)
 
         if return_metrics:
-            recalls, mrrs = self._compute_metrics(query_text)
-            return recalls, mrrs
+            recalls, mrrs, ndcgs, maps = self._compute_metrics(query_text)
+            return recalls, mrrs, ndcgs, maps
         else:
             ids, distances, categories = self._search_categories(query_text, topk)
             images = list(map(id2image, ids))
@@ -119,19 +119,32 @@ class QueryService:
     # 计算相关指标
     def _compute_metrics(self, query_text):
         from sklearn.metrics import precision_score, recall_score
-        recalls, mrrs = [], []
+        recalls = []
+        mrrs = []
+        ndcgs = []
+        maps = []
+
         topk_list = [1, 3, 5, 10]
         ids, _, categories = self._search_categories(query_text, max(topk_list))
         for k in topk_list:
-            targets = np.array([i for i in range(100)]).repeat(k)
-            categories_flat = np.array(categories)[:, :k].flatten()
+            targets = np.array([i for i in range(100)])
+            categories = np.array(categories)[:, :k]
 
-            recall = recall_score(targets, categories_flat, average='micro')
-            mrr = compute_mrr([i for i in range(100)], np.array(categories)[:, :k])
+            targets_repeat = targets.repeat(k)
+            categories_flat = categories.flatten()
+
+            recall = recall_score(targets_repeat, categories_flat, average='micro')
+            # mrr = compute_mrr(targets, categories)
+            mrr = MRR(categories, targets)
+            ndcg = NDCG(categories, targets)
+            m_ap = mAP(categories, targets)
 
             recalls.append(round(100 * recall, 4))
+            # mrrs.append(round(100 * mrr, 4))
             mrrs.append(round(100 * mrr, 4))
-        return recalls, mrrs
+            ndcgs.append(round(100 * ndcg, 4))
+            maps.append(round(100 * m_ap, 4))
+        return recalls, mrrs, ndcgs, maps
 
 
 class CalMetrics:
@@ -139,15 +152,15 @@ class CalMetrics:
         self.query_service = query_service
 
     def __call__(self):
-        recalls, mrrs = self.query_service(query_text=labels, topk=10, model_name=self.query_service.model_name,
+        recalls, mrrs, ndcgs, maps = self.query_service(query_text=labels, topk=10, model_name=self.query_service.model_name,
                                            return_metrics=True)
         return f"""
-                |            | **Recall (%)** | **mAP (%)** |
-                |:----------:|:--------------:|:-----------:|
-                |  **top@1** |{recalls[0]}    |{mrrs[0]}    |
-                |  **top@3** |{recalls[1]}    |{mrrs[1]}    |
-                |  **top@5** |{recalls[2]}    |{mrrs[2]}    |
-                | **top@10** |{recalls[3]}    |{mrrs[3]}    |
+                |            | **Recall (%)** | **MRR (%)** | **NDCG (%)** | **mAP (%)** |
+                |:----------:|:--------------:|:-----------:|:------------:|:-----------:|
+                |  **top@1** |{recalls[0]}    |{mrrs[0]}    |{ndcgs[0]}    |{maps[0]}    |
+                |  **top@3** |{recalls[1]}    |{mrrs[1]}    |{ndcgs[1]}    |{maps[1]}    |
+                |  **top@5** |{recalls[2]}    |{mrrs[2]}    |{ndcgs[2]}    |{maps[2]}    |
+                | **top@10** |{recalls[3]}    |{mrrs[3]}    |{ndcgs[3]}    |{maps[3]}    |
                 """
 
 
@@ -189,12 +202,12 @@ def text2image_gr():
                 with gr.Column(scale=6):
                     out2 = gr.Markdown(
                         """
-                        |            | **Recall (%)** | **mAP (%)** |
-                        |:----------:|:--------------:|:-----------:|
-                        |  **top@1** |                |             |
-                        |  **top@3** |                |             |
-                        |  **top@5** |                |             |
-                        | **top@10** |                |             |
+                        |            | **Recall (%)** | **MRR (%)** | **NDCG (%)** | **mAP (%)** |
+                        |:----------:|:--------------:|:-----------:|:------------:|:-----------:|
+                        |  **top@1** |                |             |              |             |
+                        |  **top@3** |                |             |              |             |
+                        |  **top@5** |                |             |              |             |
+                        | **top@10** |                |             |              |             |
                         """
                     )
                 btn2 = gr.Button("计算检索100类的平均指标", scale=1)
