@@ -3,15 +3,15 @@ import numpy as np
 
 # 指标计算
 def itm_eval(scores_t2i, txt2img):
-    # scores_t2i (numpy.array): [query_nums, image_nums]
-    # txt2img (list or np.array): [query_nums, ]
+    # scores_t2i (numpy.array): [query_nums, image_nums]真实标签列表对应的topk
+    # txt2img (list or np.array): [query_nums, ]真实标签列表
     # Text->Images
     ranks = np.zeros(scores_t2i.shape[0])
     MRRs = np.zeros(scores_t2i.shape[0])
     MAPs = np.zeros(scores_t2i.shape[0])
 
-    Top_K_NDCG = [5, 10, 30, 50]
-    Top_K_Precision = [5, 10, 30, 50]
+    Top_K_NDCG = [1, 3, 5, 10]
+    Top_K_Precision = [1, 3, 5, 10]
     NDCGs = np.zeros((len(Top_K_NDCG), scores_t2i.shape[0]))
     Precisons = np.zeros((len(Top_K_Precision), scores_t2i.shape[0]))
 
@@ -118,3 +118,80 @@ def compute_mrr(true_labels_list, predicted_labels_list):
         rr = compute_rr(true_label, predicted_labels)
         mrr.append(rr)
     return np.mean(mrr) if len(mrr) > 0 else 0
+
+
+# 写一段计算MRR的代码 要求输入参数为scores_t2i (numpy.array): [query_nums, image_nums]真实标签列表对应的topk，txt2img (list or np.array): [query_nums, ]真实标签列表
+
+def MRR(scores_t2i, txt2img):
+    """
+    :param scores_t2i:
+    :param txt2img:
+    :return:
+    """
+    # 1. 计算每个query的MRR
+    query_nums = scores_t2i.shape[0]
+    mrr = np.zeros(query_nums)
+    for i in range(query_nums):
+        # 2. 计算每个query的MRR
+        rank = 0
+        for j in range(scores_t2i.shape[1]):
+            if txt2img[i] == scores_t2i[i][j]:
+                rank = j + 1
+                break
+        mrr[i] = 1.0 / rank
+    # 3. 计算平均MRR
+    mrr_mean = np.mean(mrr)
+    return mrr_mean
+
+
+# 写一段计算NDCG的代码 要求输入参数为scores_t2i (numpy.array): [query_nums, image_nums]真实标签列表对应的topk，txt2img (list or np.array): [query_nums, ]真实标签列表
+def NDCG(scores_t2i, txt2img):
+    """
+    :param scores_t2i:
+    :param txt2img:
+    :return:
+    """
+    # 1. 计算每个query的NDCG
+    query_nums = scores_t2i.shape[0]
+    ndcg = np.zeros(query_nums)
+    for i in range(query_nums):
+        # 2. 计算每个query的NDCG
+        rank = 0
+        dcg = 0
+        for j in range(scores_t2i.shape[1]):
+            if txt2img[i] == scores_t2i[i][j]:
+                rank = j + 1
+                break
+        for j in range(rank):
+            dcg += 1.0 / np.log2(j + 2)
+        # 3. 计算每个query的NDCG
+        idcg = 0
+        for j in range(rank):
+            idcg += 1.0 / np.log2(j + 2)
+        ndcg[i] = dcg / idcg
+    # 4. 计算平均NDCG
+    ndcg_mean = np.mean(ndcg)
+    return ndcg_mean
+
+
+# 写一段计算mAP的代码 要求输入参数为scores_t2i (numpy.array): [query_nums, image_nums]真实标签列表对应的topk，txt2img (list or np.array): [query_nums, ]真实标签列表
+def mAP(scores_t2i, txt2img):
+    """
+    :param scores_t2i:
+    :param txt2img:
+    :return:
+    """
+    # 1. 计算每个query的mAP
+    query_nums = scores_t2i.shape[0]
+    mAP = np.zeros(query_nums)
+    for i in range(query_nums):
+        # 2. 计算每个query的mAP
+        rank = 0
+        for j in range(scores_t2i.shape[1]):
+            if scores_t2i[i][j] == txt2img[i]:
+                rank += 1
+                mAP[i] = rank / (j + 1)
+                break
+    # 3. 计算平均mAP
+    mAP_mean = np.mean(mAP)
+    return mAP_mean
