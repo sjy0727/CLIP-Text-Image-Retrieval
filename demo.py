@@ -55,18 +55,11 @@ class QueryService:
         self.milvus_handler = MilvusHandler()
         self.model = OnnxModel(model_name) if self.use_onnx else HfModel(model_name)
 
-    def __call__(self, query_text, topk, model_name, return_metrics=False):
-        # if not self.use_onnx and self.model_name != model_name:
-        #     self._reload(model_name)
-
-        if return_metrics:
-            recalls, mrrs, ndcgs, maps = self._compute_metrics(query_text)
-            return recalls, mrrs, ndcgs, maps
-        else:
-            ids, distances, categories = self._search_categories(query_text, topk)
-            images = list(map(id2image, ids))
-            captions = list(map(lambda x: labels[x], categories))
-            return list(zip(images, captions))
+    def __call__(self, query_text, topk, model_name):
+        ids, distances, categories = self._search_categories(query_text, topk)
+        images = list(map(id2image, ids))
+        captions = list(map(lambda x: labels[x], categories))
+        return list(zip(images, captions))
 
     # 根据 单个文本向量搜索topk个结果
     def _search_categories(self, query_text, topk):
@@ -117,8 +110,8 @@ class QueryService:
         return ids, distances, categories
 
     # 计算相关指标
-    def _compute_metrics(self, query_text):
-        from sklearn.metrics import precision_score, recall_score
+    def compute_metrics(self, query_text=labels):
+        from sklearn.metrics import recall_score
         recalls = []
         mrrs = []
         ndcgs = []
@@ -144,17 +137,7 @@ class QueryService:
             mrrs.append(round(100 * mrr, 4))
             ndcgs.append(round(100 * ndcg, 4))
             maps.append(round(100 * m_ap, 4))
-        return recalls, mrrs, ndcgs, maps
-
-
-class CalMetrics:
-    def __init__(self, query_service):
-        self.query_service = query_service
-
-    def __call__(self):
-        recalls, mrrs, ndcgs, maps = self.query_service(query_text=labels, topk=10,
-                                                        model_name=self.query_service.model_name,
-                                                        return_metrics=True)
+        # return recalls, mrrs, ndcgs, maps
         return f"""
                 |            | **Recall (%)** | **MRR (%)** | **NDCG (%)** | **mAP (%)** |
                 |:----------:|:--------------:|:-----------:|:------------:|:-----------:|
@@ -219,10 +202,9 @@ def text2image_gr():
 
         # TODO: 添加推理时间 查询时间的显示框 datatime库 timeit库
         model_query = QueryService(model_name.value)
-        cal_metrics = CalMetrics(model_query)
 
         btn1.click(fn=model_query, inputs=inputs, outputs=out1)
-        btn2.click(fn=cal_metrics, inputs=None, outputs=out2)
+        btn2.click(fn=model_query.compute_metrics, inputs=None, outputs=out2)
 
     return demo
 
