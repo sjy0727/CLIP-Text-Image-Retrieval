@@ -13,7 +13,7 @@ import torch
 
 from config import config
 from image_caption_dataset import ImageCaptionDataset
-from milvus_handler import MilvusHandler
+from db_handler import MilvusHandler
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 from tqdm import tqdm
