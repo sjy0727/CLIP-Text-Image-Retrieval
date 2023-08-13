@@ -138,7 +138,7 @@ def MRR(scores_t2i, txt2img):
             if txt2img[i] == scores_t2i[i][j]:
                 rank = j + 1
                 break
-        mrr[i] = 1.0 / rank
+        mrr[i] = 1.0 / rank if rank != 0 else 0
     # 3. 计算平均MRR
     mrr_mean = np.mean(mrr)
     return mrr_mean
@@ -168,7 +168,7 @@ def NDCG(scores_t2i, txt2img):
         idcg = 0
         for j in range(rank):
             idcg += 1.0 / np.log2(j + 2)
-        ndcg[i] = dcg / idcg
+        ndcg[i] = dcg / idcg if idcg != 0 else 0
     # 4. 计算平均NDCG
     ndcg_mean = np.mean(ndcg)
     return ndcg_mean
