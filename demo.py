@@ -15,8 +15,7 @@ import pandas as pd
 
 from config import config
 from model import OnnxModel, HfModel
-from redis_handler import RedisHandler
-from milvus_handler import MilvusHandler
+from db_handler import MilvusHandler, RedisHandler
 from metric import compute_mrr
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
