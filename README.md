@@ -11,13 +11,13 @@
 
 ## 主要功能
 
-1. 图文检索：用户可以输入文本描述，系统将利用 CLIP 模型从数据库中检索出与之最匹配的图片，并返回结果。
+1. **图文检索**：用户可以输入文本描述，系统将利用 CLIP 模型从数据库中检索出与之最匹配的图片，并返回结果。
 
-2. 数据库存储：项目使用 Milvus 数据库来存储图像特征向量，利用其高效的相似度搜索功能进行图像检索。
+2. **索引技术**：项目使用 Milvus 数据库来存储图像特征向量，利用其高效的相似度搜索功能进行图像检索。
 
-3. 缓存优化：通过 Redis 数据库，将一部分检索结果缓存在内存中，以加速后续的相似度搜索。
+3. **缓存优化**：通过 Redis 数据库，将一部分检索结果缓存在内存中，以加速后续的相似度搜索。(可选功能)
 
-4. ONNX 推理加速：通过将 CLIP 模型转换为 ONNX 格式，利用 ONNX Runtime 进行推理加速，提高检索的实时性。
+4. **ONNX 推理加速**：通过将 CLIP 模型转换为 ONNX 格式，利用 ONNX Runtime 进行推理加速，提高检索的实时性。
 
 ## 安装指南
 
@@ -31,7 +31,7 @@ $ sudo docker-compose up -d
 $ docker port milvus-standalone 19530/tcp
 ```
 
-2. 下载安装redis
+2. 下载安装redis (可选功能)
 
 ```bash
 $ sudo apt-get install redis-server
@@ -75,7 +75,7 @@ mini-imagenet
 
 ## 配置文件
 
-- 本项目以yaml作为配置文件，将微调，导出onnx，推理相关的参数写在`config.py`中。
+- 本项目以yaml作为配置文件，将微调，导出onnx，推理相关的参数写在`config.py`中。可通过指定参数来灵活替换模型及数据库等参数。
 
 ## 微调
 
@@ -89,6 +89,14 @@ $ accelerate launch --multi_gpu \
                     --ep=5 \
                     --lr=5e-5 \
                     --bs=64
+```
+
+## 图库建设
+
+- 通过运行embed2db.py将数据集存入milvus中。
+
+```bash
+$ python embed2db.py
 ```
 
 ## onnx 推理加速
