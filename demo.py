@@ -224,7 +224,7 @@ def upload2db_gr(model_query):
         with gr.Row():  # 行
             with gr.Column():  # 列
                 img = gr.Image(type='pil')
-                label = gr.Dropdown(labels)
+                label = gr.Dropdown(labels, label='图像类别')
                 with gr.Row():
                     gr.ClearButton(img)
                     btn = gr.Button("提交")
