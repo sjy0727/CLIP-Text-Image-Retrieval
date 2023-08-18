@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from config import config
-from model import OnnxModel, HfModel
+from model import OnnxTextModel, HfTextModel, HfVisionModel
 from db_handler import MilvusHandler, RedisHandler
 from metric import compute_mrr, NDCG, MRR, mAP
 from PIL import Image
@@ -53,7 +53,8 @@ class QueryService:
             self.redis_handler = RedisHandler()
 
         self.milvus_handler = MilvusHandler()
-        self.model = OnnxModel(model_name) if self.use_onnx else HfModel(model_name)
+        self.text_model = OnnxTextModel(model_name) if self.use_onnx else HfTextModel(model_name)
+        self.vision_model = HfVisionModel(model_name)
 
     def __call__(self, query_text, topk, model_name):
         ids, distances, categories = self._search_categories(query_text, topk)
@@ -65,10 +66,10 @@ class QueryService:
     def _search_categories(self, query_text, topk):
         if self.use_redis:
             # 如果查询文本是单个字符串
-            if type(query_text) == str:
+            if isinstance(query_text, str):
                 search_res = self.redis_handler.get(query_text)
             # 如果查询文本是字符串列表
-            elif type(query_text) == list:
+            elif isinstance(query_text, list):
                 search_res = self.redis_handler.redis_client.mget(query_text)
             else:
                 return NotImplementedError
@@ -79,35 +80,44 @@ class QueryService:
 
                 res_pack = list(zip(ids, distances, categories))
                 # 如果查询文本是单个字符串则转为列表，方便统一处理
-                if type(query_text) == str:
+                if isinstance(query_text, str):
                     query_text = [query_text]
                 for text, pack in zip(query_text, res_pack):
                     self.redis_handler.set(text, pickle.dumps(pack))
 
-                if type(query_text) != str:
+                if not isinstance(query_text, str):
                     return ids, distances, categories
                 else:
                     return ids[0], distances[0], categories[0]
             else:
-                if type(query_text) == str:
+                if isinstance(query_text, str):
                     id, distance, category = self.redis_handler.get(query_text)
                     return id, distance, category
-                elif type(query_text) == list:
+                elif isinstance(query_text, list):
                     deserialize_res = self.redis_handler.mget(query_text)
                     ids, distances, categories = tuple(zip(*deserialize_res))
                     return ids, distances, categories
         # 如果不使用redis
         else:
             ids, distances, categories = self._embed_and_search(query_text, topk)
-            if type(query_text) != str:
+            if not isinstance(query_text, str):
                 return ids, distances, categories
             else:
                 return ids[0], distances[0], categories[0]
 
     def _embed_and_search(self, query_text, topk):
-        text_embeds = self.model(text=query_text)
+        text_embeds = self.text_model(text=query_text)
         ids, distances, categories = self.milvus_handler.search(text_embeds, topk)
         return ids, distances, categories
+
+    def embed_and_insert(self, upload_image, label):
+        image_embeds = self.vision_model(images=upload_image)
+        categories = [label2cate[label]]
+        ids = [self.milvus_handler.collection.num_entities + 1]
+        # ids对应的主键序号列表， categories类别对应的数字列表
+        insert_datas = [ids, image_embeds, categories]  # 插入的数据可以是list[dict] or list[list]
+        self.milvus_handler.insert(data=insert_datas)
+        return '已上传至图库中'
 
     # 计算相关指标
     def compute_metrics(self, query_text=labels):
@@ -148,18 +158,18 @@ class QueryService:
                 """
 
 
-def text2image_gr():
-    clip = config.gradio.checkpoint_dir
+def text2image_gr(model_query, model_name=config.gradio.checkpoint_dir):
+    clip = model_name
     # blip2 = 'blip2-2.7b'
 
     title = "<h1 align='center'>多模态大模型图像检索应用</h1>"
     description = '本项目基于mini imagenet数据集微调'
 
     examples = [
-        ["dugong", 10, clip, ],
-        ["robin", 10, clip, ],
-        ["triceratops", 10, clip, ],
-        ["green mamba", 10, clip, ]
+        ["dugong", 10, clip],
+        ["robin", 10, clip],
+        ["triceratops", 10, clip],
+        ["green mamba", 10, clip]
     ]
 
     with gr.Blocks() as demo:
@@ -201,7 +211,7 @@ def text2image_gr():
         gr.Examples(examples, inputs=inputs)
 
         # TODO: 添加推理时间 查询时间的显示框 datatime库 timeit库
-        model_query = QueryService(model_name.value)
+        # model_query = QueryService(model_name.value)
 
         btn1.click(fn=model_query, inputs=inputs, outputs=out1)
         btn2.click(fn=model_query.compute_metrics, inputs=None, outputs=out2)
@@ -209,10 +219,30 @@ def text2image_gr():
     return demo
 
 
+def upload2db_gr(model_query):
+    with gr.Blocks() as demo:
+        with gr.Row():  # 行
+            with gr.Column():  # 列
+                img = gr.Image(type='pil')
+                label = gr.Dropdown(labels)
+                with gr.Row():
+                    gr.ClearButton(img)
+                    btn = gr.Button("提交")
+
+            with gr.Column():
+                md = gr.Markdown()
+
+        btn.click(fn=model_query.embed_and_insert, inputs=[img, label], outputs=md)
+    return demo
+
+
 if __name__ == "__main__":
+    model_name = config.gradio.checkpoint_dir
+    model_query = QueryService(model_name)
+
     with gr.TabbedInterface(
-            [text2image_gr()],
-            ["文到图搜索"],
+            [text2image_gr(model_query, model_name), upload2db_gr(model_query)],
+            ['以文搜图', '上传图片'],
     ) as demo:
         demo.launch(
             enable_queue=True,
