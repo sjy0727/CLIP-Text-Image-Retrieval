@@ -58,6 +58,11 @@ class OnnxConfig:
         self.save_dir = './onnx'
 
 
+class DatasetConfig:
+    def __init__(self):
+        self.name = 'mini imagenet'  # 'coco'
+
+
 class Config:
     def __init__(self):
         self.milvus = MilvusConfig()
@@ -65,6 +70,7 @@ class Config:
         self.gradio = GradioConfig()
         self.finetune = FinetuneConfig()
         self.onnx = OnnxConfig()
+        self.dataset = DatasetConfig()
 
 
 config = Config()
