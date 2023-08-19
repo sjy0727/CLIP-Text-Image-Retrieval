@@ -170,8 +170,8 @@ if __name__ == "__main__":
     # parser.add_argument("--image_size", default=224, type=int)
     args = parser.parse_args()
 
-    train_ds = ImageCaptionDataset(is_train=True, return_loss=True)
-    val_ds = ImageCaptionDataset(is_train=False, return_loss=True)
+    train_ds = ImageCaptionDataset(is_train=True, return_loss=True, dataset=config.dataset.name)
+    val_ds = ImageCaptionDataset(is_train=False, return_loss=True, dataset=config.dataset.name)
 
     train_diffsampler = DifferentClassSampler(train_ds)
     val_diffsampler = DifferentClassSampler(val_ds)
