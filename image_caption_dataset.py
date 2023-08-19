@@ -162,9 +162,3 @@ class ImageCaptionDataset(Dataset):
         return ids, categories, output
 
 
-if __name__ == '__main__':
-    dataDir = '/Users/sunjunyi/Downloads/flickr30k'
-    annFile = os.path.join(dataDir, 'results_20130124.token')
-    img_folder = os.path.join(dataDir, 'flickr30k-images')
-    annotations = pd.read_table(annFile, sep='\t', header=None, names=['image', 'caption'])
-    print(annotations['caption'])
