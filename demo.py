@@ -7,7 +7,6 @@
 import os
 import json
 import pickle
-import yaml
 
 import gradio as gr
 import numpy as np
@@ -15,23 +14,31 @@ import pandas as pd
 
 from config import config
 from model import OnnxTextModel, HfTextModel, HfVisionModel
+from image_caption_dataset import get_labels_and_cates
 from db_handler import MilvusHandler, RedisHandler
 from metric import compute_mrr, NDCG, MRR, mAP
+
 from PIL import Image
 from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, DataType, Collection, utility
 
-root_dir = './mini-imagenet/'
-with open(os.path.join(root_dir, 'classes_name.json'), 'r') as f:
-    mini_imagenet_label = json.load(f)
+# root_dir = './mini-imagenet/'
+# with open(os.path.join(root_dir, 'classes_name.json'), 'r') as f:
+#     mini_imagenet_label = json.load(f)
 
 # 文本标签到数字的字典
-label2cate = {i[1].replace('_', ' '): i[0] for i in list(mini_imagenet_label.values())}
+# label2cate = {i[1].replace('_', ' '): i[0] for i in list(mini_imagenet_label.values())}
 
 # 文本标签列表
-labels = [i[1].replace('_', ' ') for i in list(mini_imagenet_label.values())]
+# labels = [i[1].replace('_', ' ') for i in list(mini_imagenet_label.values())]
 
 # 标签描述文件
-captions = ['this is a picture of ' + i for i in labels]
+# captions = ['this is a picture of ' + i for i in labels]
+
+
+# 所有图像的标签和类别
+labels, cates = get_labels_and_cates(dataset=config.dataset.name, is_train=False)
+label2cate = {label: cate for label, cate in zip(labels, cates)}
+cate2label = {str(cate): label for label, cate in zip(labels, cates)}
 
 
 # 图像id到图像文件的映射函数
@@ -59,7 +66,8 @@ class QueryService:
     def __call__(self, query_text, topk, model_name):
         ids, distances, categories = self._search_categories(query_text, topk)
         images = list(map(id2image, ids))
-        captions = list(map(lambda x: labels[x], categories))
+        # captions = list(map(lambda x: labels[x], categories))  # 根据类别数字找到对应的描述
+        captions = list(map(lambda x: cate2label[str(x)], categories))
         return list(zip(images, captions))
 
     # 根据 单个文本向量搜索topk个结果
@@ -129,8 +137,10 @@ class QueryService:
 
         topk_list = [1, 3, 5, 10]
         ids, _, categories = self._search_categories(query_text, max(topk_list))
+
         for k in topk_list:
-            targets = np.array([i for i in range(100)])
+            # targets = np.array([i for i in range(100)])
+            targets = np.array(cates)
             categories_k = np.array(categories)[:, :k]
 
             targets_repeat = targets.repeat(k)
@@ -204,7 +214,7 @@ def text2image_gr(model_query, model_name=config.gradio.checkpoint_dir):
                         | **top@10** |                |             |              |             |
                         """
                     )
-                btn2 = gr.Button("计算检索100类的平均指标", scale=1)
+                btn2 = gr.Button("计算检索平均指标", scale=1)
 
         inputs = [query_text, topk, model_name]
 
@@ -224,7 +234,8 @@ def upload2db_gr(model_query):
         with gr.Row():  # 行
             with gr.Column():  # 列
                 img = gr.Image(type='pil')
-                label = gr.Dropdown(labels, label='图像类别')
+                # label = gr.Dropdown(labels, label='图像类别')
+                label = gr.Textbox(label='图像类别')  # 避免下拉栏太多
                 with gr.Row():
                     gr.ClearButton(img)
                     btn = gr.Button("提交")
