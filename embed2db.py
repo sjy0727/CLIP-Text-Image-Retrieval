@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     root_dir = './mini-imagenet/'
     # dataset = image_title_data_iter(root_dir, checkpoint_dir)
-    dataset = ImageCaptionDataset(is_train=False, return_loss=False)
+    dataset = ImageCaptionDataset(is_train=False, return_loss=False, dataset=config.dataset.name)
 
     dataloader = DataLoader(
         dataset,
