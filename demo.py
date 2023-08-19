@@ -173,7 +173,7 @@ def text2image_gr(model_query, model_name=config.gradio.checkpoint_dir):
     # blip2 = 'blip2-2.7b'
 
     title = "<h1 align='center'>多模态大模型图像检索应用</h1>"
-    description = '本项目基于mini imagenet数据集微调'
+    description = '本项目基于CLIP与Milvus构建'
 
     examples = [
         ["dugong", 10, clip],
