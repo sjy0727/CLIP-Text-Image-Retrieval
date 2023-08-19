@@ -8,8 +8,9 @@ import os
 import json
 import yaml
 
-import pandas as pd
 import torch
+import pandas as pd
+import numpy as np
 
 from config import config
 from image_caption_dataset import ImageCaptionDataset
@@ -50,8 +51,8 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('device: ', device)
     # 模型加载权重
-    # image_encoder = CLIPVisionModelWithProjection.from_pretrained(checkpoint_dir).to(device)
-    # text_encoder = CLIPTextModelWithProjection.from_pretrained(checkpoint_dir).to(device)
+    image_encoder = CLIPVisionModelWithProjection.from_pretrained(checkpoint_dir).to(device)
+    text_encoder = CLIPTextModelWithProjection.from_pretrained(checkpoint_dir).to(device)
     model = CLIPModel.from_pretrained(checkpoint_dir).to(device)
     # 预处理器
     processor = AutoProcessor.from_pretrained(checkpoint_dir)
@@ -79,16 +80,46 @@ if __name__ == '__main__':
     with torch.no_grad():
         for step, batch in enumerate(tqdm(dataloader)):
             ids, categories, inputs = batch
-            inputs = inputs.to(device)
 
+            # 如果图像数量与描述数量不一样, 即如果文对图是多对一
+            if inputs['pixel_values'].shape[0] != inputs['input_ids'].shape[0]:
+                len_list = inputs['len_list']
+                del inputs['len_list']
+                # 图像部分
+                image_output = image_encoder(pixel_values=inputs['pixel_values'])
+                image_output.image_embeds /= image_output.image_embeds.norm(dim=-1, keepdim=True)
+                image_embeds = image_output.image_embeds.squeeze().cpu().numpy()
+
+                # 文本部分
+                text_output = text_encoder(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+                text_output.text_embeds /= text_output.text_embeds.norm(dim=-1, keepdim=True)
+                text_embeds = text_output.text_embeds.squeeze().cpu().numpy()
+
+                # 对batch中每个图像对应的多个描述做平均embed
+                text_embeds_list = []
+                for i in range(len(len_list)):
+                    sub_text_embeds = text_embeds[sum(len_list[:i]):sum(len_list[:i]) + len_list[i]]
+                    # 将多个描述的text_embedding平均
+                    sub_text_embeds = np.mean(sub_text_embeds, axis=0, keepdims=True)
+                    text_embeds_list.append(sub_text_embeds)
+                # 将分散的text_embed组成一个batch
+                mean_text_embeds = np.concatenate(text_embeds_list, axis=0)
+                insert_datas = [ids, (image_embeds + mean_text_embeds) / 2, categories]  # 可以传list[dict] or list[list]
+                mr = milvus_handler.insert(data=insert_datas)
+                continue
+
+            inputs = inputs.to(device)
             output = model(**inputs)
+
+            # 图像部分
             output.image_embeds /= output.image_embeds.norm(dim=-1, keepdim=True)
             image_embeds = output.image_embeds.squeeze().cpu().numpy()  # 注意要squeeze() 不然无法插入
 
+            # 文本部分
             output.text_embeds /= output.text_embeds.norm(dim=-1, keepdim=True)
             text_embeds = output.text_embeds.squeeze().cpu().numpy()
 
-            insert_datas = [ids, (image_embeds + text_embeds) / 2, categories]  # 可以传list(dict) or list(list)
+            insert_datas = [ids, (image_embeds + text_embeds) / 2, categories]  # 可以传list[dict] or list[list]
             # mr = collection.insert(data=insert_datas)
             mr = milvus_handler.insert(data=insert_datas)
 
