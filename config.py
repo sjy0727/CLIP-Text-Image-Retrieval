@@ -60,7 +60,7 @@ class OnnxConfig:
 
 class DatasetConfig:
     def __init__(self):
-        self.name = 'mini imagenet'  # 'coco'
+        self.name = 'mini imagenet'  # 可选'coco','flickr30k'
 
 
 class Config:
