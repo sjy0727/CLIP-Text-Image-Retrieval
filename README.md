@@ -57,7 +57,7 @@ DeepMind团队从Imagnet数据集中抽取的一小部分（大小约3GB）制�
 - 下载`mini-imagenet` [数据集](https://pan.baidu.com/s/1Uro6RuEbRGGCQ8iXvF2SAQ/?pwd=hl31)。
 
 
-- 把`mini-imagenet`文件夹与`*.py`文件放在同级目录下。
+- 把`mini-imagenet，MSCOCO，flickr30k`等文件夹与`*.py`文件放在同级目录下。
 
 ```
 mini-imagenet
@@ -71,6 +71,31 @@ mini-imagenet
 ├── new_val.csv
 ├── train.json
 └── val.json
+```
+
+下载`coco`2014数据集: https://cocodataset.org/#download
+
+```
+MSCOCO
+├── annotations
+│   ├── captions_train2014.json
+│   └── captions_val2014.json
+├── train2014
+│   ├── xxx.jpg
+│   └── ...
+└── val2014
+    ├── xxx.jpg
+    └── ...
+```
+
+下载`flickr30k`数据集: http://shannon.cs.illinois.edu/DenotationGraph/data/index.html
+
+```
+Flickr30k
+├── flickr30k-images
+│   ├── xxx.jpg
+│   └── ...
+└── results_20130124.token
 ```
 
 ## 配置文件
