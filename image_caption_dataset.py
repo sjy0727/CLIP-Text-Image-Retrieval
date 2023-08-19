@@ -18,12 +18,20 @@ def get_labels_and_cates(dataset, is_train):
     build_dataset_fn = {
         'mini imagenet': build_mini_imagenet_dataset,
         'coco': build_coco_dataset,
-        'flickr30k': build_flickr30k
+        'flickr30k': build_flickr30k_dataset
     }
     array = build_dataset_fn[dataset](is_train=is_train)
     array = sorted(array, key=lambda x: int(x[1]))
-    labels = [item[3] for item in array]
     cates = [item[1] for item in array]
+
+    labels = [item[3] for item in array]
+    # 如果是二维数组则一个图像对应多个描述
+    if isinstance(labels, list) and all(isinstance(sub_list, list) for sub_list in labels):
+        len_list = list(map(lambda x: len(x), labels))
+        # 将二维数组展平，让tokenizer处理batch个labels时,input_ids与attn_masks长度相同
+        labels = [item for sub_list in labels for item in sub_list]
+        # todo:如何让n个图与m个描述匹配，额外知道的条件有每个图片对应有几个描述 labels多，cates少
+        cates = [item for item, count in zip(cates, len_list) for _ in range(count)]
     return labels, cates
 
 
@@ -76,28 +84,41 @@ def build_coco_dataset(is_train=False):
         }
         img_path = os.path.join(img_folder, img_info['file_name'])
 
-        for caption in captions:
-            category = img_id  # img_id作为类别数字
-            res.append((idx, category, img_path, caption))
-    return sorted(res, key=lambda x: int(x[1]))
+        # for caption in captions:
+        #     category = img_id  # img_id作为类别数字
+        #     res.append((idx, category, img_path, caption))
+
+        category = img_id
+        res.append((idx, category, img_path, captions))
+    return res
 
     # images_and_captions 中包含了每张图像及其对应的多个描述
     # (idx, category, img_path, label)
 
 
-def build_flickr30k(is_train=False):
+def build_flickr30k_dataset(is_train=False):
     dataDir = './Flickr30k'
     annFile = os.path.join(dataDir, 'results_20130124.token')
     img_folder = os.path.join(dataDir, 'flickr30k-images')
     annotations = pd.read_table(annFile, sep='\t', header=None, names=['image', 'caption'])
-    captions2images = {caption: image.split('#')[0] for caption, image in
-                       zip(annotations['caption'], annotations['image'])}
+
+    # 构建图像ID到描述的映射
+    img_to_captions = {}
+    for image, caption in zip(annotations['image'], annotations['caption']):
+        image = image.split('#')[0]
+        if image not in img_to_captions:
+            img_to_captions[image].append(caption)
+        else:
+            img_to_captions[image] = [caption]
+
+    # captions2images = {caption: image.split('#')[0] for caption, image in
+    #                    zip(annotations['caption'], annotations['image'])}
 
     res = []
-    for idx, (image, caption) in enumerate(captions2images.items()):
+    for idx, (image, captions) in enumerate(img_to_captions.items()):
         img_path = os.path.join(img_folder, image)
         category = int(image.split('.')[0])
-        res.append((idx, category, img_path, caption))
+        res.append((idx, category, img_path, captions))
     return res
 
 
@@ -106,7 +127,7 @@ class ImageCaptionDataset(Dataset):
         build_dataset_fn = {
             'mini imagenet': build_mini_imagenet_dataset,
             'coco': build_coco_dataset,
-            'flickr30k': build_flickr30k
+            'flickr30k': build_flickr30k_dataset
         }
         self.data = build_dataset_fn[dataset](is_train=is_train)
         self.return_loss = return_loss
@@ -122,7 +143,28 @@ class ImageCaptionDataset(Dataset):
 
     def collate_fn(self, batch):
         ids, categories, images, labels = tuple(zip(*batch))  # batch接收的是dataset getitem方法返回值的列表
-        output = self.processor(text=labels, images=images, return_tensors='pt', padding=True)
+
+        # 如果是二维数组则一个图像对应多个描述
+        if isinstance(labels, list) and all(isinstance(sub_list, list) for sub_list in labels):
+            # 统计二维数组每个数组的长度，即batch中每个图像对应的描述数量
+            len_list = list(map(lambda x: len(x), labels))
+            # 将二维数组展平，让tokenizer处理batch个labels时,input_ids与attn_masks长度相同
+            flat_labels = [item for sub_list in labels for item in sub_list]
+
+            # 一张图对应的n个描述
+            output = self.processor(text=flat_labels, images=images, return_tensors='pt', padding=True)
+            output['len_list'] = len_list
+        else:
+            output = self.processor(text=labels, images=images, return_tensors='pt', padding=True)
+
         if self.return_loss:
             output['return_loss'] = True
         return ids, categories, output
+
+
+if __name__ == '__main__':
+    dataDir = '/Users/sunjunyi/Downloads/flickr30k'
+    annFile = os.path.join(dataDir, 'results_20130124.token')
+    img_folder = os.path.join(dataDir, 'flickr30k-images')
+    annotations = pd.read_table(annFile, sep='\t', header=None, names=['image', 'caption'])
+    print(annotations['caption'])
