@@ -30,7 +30,6 @@ def get_labels_and_cates(dataset, is_train):
         len_list = list(map(lambda x: len(x), labels))
         # 将二维数组展平，让tokenizer处理batch个labels时,input_ids与attn_masks长度相同
         labels = [item for sub_list in labels for item in sub_list]
-        # todo:如何让n个图与m个描述匹配，额外知道的条件有每个图片对应有几个描述 labels多，cates少
         cates = [item for item, count in zip(cates, len_list) for _ in range(count)]
     return labels, cates
 
