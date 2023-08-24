@@ -31,7 +31,7 @@ $ sudo docker-compose up -d
 $ docker port milvus-standalone 19530/tcp
 ```
 
-2. 下载安装redis (可选功能)
+2. 下载安装`Redis` (可选功能)
 
 ```bash
 $ sudo apt-get install redis-server
@@ -75,7 +75,7 @@ mini-imagenet
 └── val.json
 ```
 
-下载`coco`2014数据集: https://cocodataset.org/#download
+下载`coco2014`数据集: https://cocodataset.org/#download
 
 ```
 MSCOCO
@@ -102,7 +102,7 @@ Flickr30k
 
 ## 配置文件
 
-- 本项目以yaml作为配置文件，将微调，导出onnx，推理相关的参数写在`config.py`中。可通过指定参数来灵活替换模型及数据库等参数。
+- 本项目将微调，导出onnx，推理相关的参数写在`config.py`中。可通过指定参数来灵活替换模型及数据库等参数。
 
 ## 微调
 
@@ -120,7 +120,7 @@ $ accelerate launch --multi_gpu \
 
 ## 图库建设
 
-- 通过运行embed2db.py将数据集存入milvus中。
+- 通过运行`embed2db.py`将数据集存入milvus中。
 
 ```bash
 $ python embed2db.py
