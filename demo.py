@@ -5,8 +5,10 @@
 @Time   :2023/7/29 13:19
 """
 import os
+import io
 import json
 import pickle
+import base64
 
 import gradio as gr
 import numpy as np
@@ -39,14 +41,21 @@ from pymilvus import MilvusClient, connections, FieldSchema, CollectionSchema, D
 labels, cates = get_labels_and_cates(dataset=config.dataset.name, is_train=False)
 label2cate = {label: cate for label, cate in zip(labels, cates)}
 cate2label = {str(cate): label for label, cate in zip(labels, cates)}
+# 外部字典存储图像的id与image base64
+extraPairDict = {}
 
 
 # 图像id到图像文件的映射函数
 def id2image(img_id):
     root_dir = './mini-imagenet/'
     val_data = pd.read_csv(os.path.join(root_dir, 'new_val.csv'))  # 只对12000张测试集的图像做检索，
-    img_path = os.path.join(root_dir, 'images', val_data['filename'][img_id])
-    img = Image.open(img_path)
+    # 如果img_id不在数据集的标签文件中，则是用户自己上传的
+    if img_id >= len(val_data['filename']):
+        img_base64 = extraPairDict[str(img_id)]
+        img = Image.open(io.BytesIO(base64.b64decode(img_base64))).convert("RGB")
+    else:
+        img_path = os.path.join(root_dir, 'images', val_data['filename'][img_id])
+        img = Image.open(img_path)
     return img
 
 
@@ -83,7 +92,7 @@ class QueryService:
                 return NotImplementedError
 
             # 如果没在redis中找到结果
-            if search_res == None or None in search_res:  # TODO:待优化
+            if search_res is None or None in search_res:  # TODO:待优化
                 ids, distances, categories = self._embed_and_search(query_text, topk)
 
                 res_pack = list(zip(ids, distances, categories))
@@ -118,12 +127,37 @@ class QueryService:
         ids, distances, categories = self.milvus_handler.search(text_embeds, topk)
         return ids, distances, categories
 
+    def _PIL2Base64(self, image):
+        # 创建一个BytesIO对象，用于临时存储图像数据
+        image_data = io.BytesIO()
+
+        # 将图像保存到BytesIO对象中，格式为JPEG
+        image.save(image_data, format='JPEG')
+
+        # 将BytesIO对象的内容转换为字节串
+        image_data_bytes = image_data.getvalue()
+
+        # 将图像数据编码为Base64字符串
+        encoded_image = base64.b64encode(image_data_bytes).decode('utf-8')
+        return encoded_image
+
     def embed_and_insert(self, upload_image, label):
         image_embeds = self.vision_model(images=upload_image)
-        categories = [label2cate[label]]
+        text_embeds = self.text_model(text=label)
         ids = [self.milvus_handler.collection.num_entities + 1]
+        # 如果label不在字典中
+        if label2cate.get(label) is None:
+            labels.append(label)
+            label2cate[label] = max(cates) + 1
+            cates.append(label2cate[label])
+            cate2label[str(label2cate[label])] = label
+            categories = [label2cate[label]]
+            # 插入到id到image base64的字典
+            extraPairDict[str(self.milvus_handler.collection.num_entities + 1)] = self._PIL2Base64(upload_image)
+        else:
+            categories = [label2cate[label]]
         # ids对应的主键序号列表， categories类别对应的数字列表
-        insert_datas = [ids, image_embeds, categories]  # 插入的数据可以是list[dict] or list[list]
+        insert_datas = [ids, (image_embeds + text_embeds) / 2, categories]  # 插入的数据可以是list[dict] or list[list]
         self.milvus_handler.insert(data=insert_datas)
         return '已上传至图库中'
 
